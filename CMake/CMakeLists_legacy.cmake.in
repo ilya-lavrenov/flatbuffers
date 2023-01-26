@@ -117,6 +117,7 @@ set(FlatBuffers_Library_SRCS
   include/flatbuffers/flatbuffer_builder.h
   include/flatbuffers/flatbuffers.h
   include/flatbuffers/flexbuffers.h
+  include/flatbuffers/flex_flat_util.h
   include/flatbuffers/hash.h
   include/flatbuffers/idl.h
   include/flatbuffers/minireflect.h
@@ -155,12 +156,21 @@ set(FlatBuffers_Compiler_SRCS
   src/idl_gen_grpc.cpp
   src/idl_gen_json_schema.cpp
   src/idl_gen_swift.cpp
+  src/idl_namer.h
+  src/namer.h
   src/flatc.cpp
   src/flatc_main.cpp
   src/bfbs_gen.h
   src/bfbs_gen_lua.h
+  src/bfbs_gen_nim.h
+  src/bfbs_namer.h
   include/flatbuffers/code_generators.h
+  src/binary_annotator.h
+  src/binary_annotator.cpp
+  src/annotated_binary_text_gen.h
+  src/annotated_binary_text_gen.cpp
   src/bfbs_gen_lua.cpp
+  src/bfbs_gen_nim.cpp
   src/code_generators.cpp
   grpc/src/compiler/schema_interface.h
   grpc/src/compiler/cpp_generator.h
@@ -185,13 +195,26 @@ set(FlatHash_SRCS
 set(FlatBuffers_Tests_SRCS
   ${FlatBuffers_Library_SRCS}
   src/idl_gen_fbs.cpp
+  tests/evolution_test.cpp
+  tests/flexbuffers_test.cpp
+  tests/fuzz_test.cpp
+  tests/json_test.cpp
+  tests/key_field_test.cpp
+  tests/monster_test.cpp
+  tests/optional_scalars_test.cpp
+  tests/parser_test.cpp
+  tests/proto_test.cpp
+  tests/reflection_test.cpp
   tests/test.cpp
   tests/test_assert.h
   tests/test_assert.cpp
   tests/test_builder.h
   tests/test_builder.cpp
+  tests/util_test.cpp
   tests/native_type_test_impl.h
   tests/native_type_test_impl.cpp
+  tests/alignment_test.h
+  tests/alignment_test.cpp
   include/flatbuffers/code_generators.h
   src/code_generators.cpp
   # file generate by running compiler on tests/monster_test.fbs
@@ -211,6 +234,12 @@ set(FlatBuffers_Tests_SRCS
   ${CMAKE_CURRENT_BINARY_DIR}/tests/monster_test_bfbs_generated.h
   # file generate by running compiler on tests/optional_scalars.fbs
   ${CMAKE_CURRENT_BINARY_DIR}/tests/optional_scalars_generated.h
+  # file generate by running compiler on tests/native_inline_table_test.fbs
+  ${CMAKE_CURRENT_BINARY_DIR}/tests/native_inline_table_test_generated.h
+  # file generate by running compiler on tests/alignment_test.fbs
+  ${CMAKE_CURRENT_BINARY_DIR}/tests/alignment_test_generated.h
+  # file generate by running compiler on tests/key_field/key_field_sample.fbs
+  ${CMAKE_CURRENT_BINARY_DIR}/tests/key_field/key_field_sample_generated.h
 )
 
 set(FlatBuffers_Tests_CPP17_SRCS
@@ -537,33 +566,6 @@ function(compile_flatbuffers_schema_to_embedded_binary SRC_FBS OPT)
           COMMENT "Run generation: '${GEN_BFBS_HEADER}'")
   register_generated_output(${GEN_BFBS_HEADER})
 endfunction()
-
-# Look if we have python 3.5 installed so that we can run the generate code
-# python script after flatc is built.
-find_package(PythonInterp 3.5)
-
-if(PYTHONINTERP_FOUND AND
-  # Skip doing this if the MSVC version is below VS 12.
-  # https://cmake.org/cmake/help/latest/variable/MSVC_VERSION.html
-  (NOT MSVC OR MSVC_VERSION GREATER 1800))
-  set(GENERATION_SCRIPT ${PYTHON_EXECUTABLE} scripts/generate_code.py) 
-  if(FLATBUFFERS_BUILD_LEGACY)
-    # Need to set --cpp-std c++-0x options
-    set(GENERATION_SCRIPT ${GENERATION_SCRIPT} --cpp-0x)
-  endif()
-  if(FLATBUFFERS_SKIP_MONSTER_EXTRA)
-    set(GENERATION_SCRIPT ${GENERATION_SCRIPT} --skip-monster-extra)
-  endif()
-  add_custom_command(
-    TARGET flatc
-    POST_BUILD
-    COMMAND ${GENERATION_SCRIPT} --flatc "${FLATBUFFERS_FLATC_EXECUTABLE}"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Running ${GENERATION_SCRIPT}..."
-    VERBATIM)
-else()
-  message("No Python3 interpreter found! Unable to generate files automatically.")
-endif()
 
 if(FLATBUFFERS_BUILD_TESTS)
   file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/tests" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
